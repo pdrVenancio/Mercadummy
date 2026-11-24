@@ -1,0 +1,7 @@
+{
+  "name": "mercadummy",
+  "private": true,
+  "workspaces": ["api", "web"],
+  "scripts": {"dev": "concurrently -k -n api,web -c green,cyan \"npm run start:dev -w api\" \"npm run dev -w web\"", "build": "npm run build -w api && npm run build -w web", "seed:dev": "npm run seed:dev -w api"},
+  "devDependencies": {"concurrently":"^9.1.2"}
+}

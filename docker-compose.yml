@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mercadummy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mercadummy}
+      POSTGRES_DB: ${POSTGRES_DB:-mercadummy}
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mercadummy}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  mongo:
+    image: mongo:7
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports: ["27017:27017"]
+    volumes: ["mongodata:/data/db"]
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'try { rs.status().ok } catch(e) { rs.initiate({_id:\"rs0\",members:[{_id:0,host:\"mongo:27017\"}]}); }'"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    volumes: ["redisdata:/data"]
+  api:
+    build: ./api
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-mercadummy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mercadummy}
+      POSTGRES_DB: ${POSTGRES_DB:-mercadummy}
+      MONGO_URI: mongodb://mongo:27017/mercadummy?replicaSet=rs0
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SESSION_SECRET: ${SESSION_SECRET:-dev-session-secret}
+      API_KEY: ${API_KEY:-change-this-api-key}
+      WEB_ORIGIN: http://localhost:5173
+    ports: ["3000:3000"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      mongo: {condition: service_healthy}
+      redis: {condition: service_started}
+  web:
+    build: ./web
+    environment:
+      VITE_API_URL: http://localhost:3000
+    ports: ["5173:5173"]
+    depends_on: [api]
+volumes:
+  pgdata:
+  mongodata:
+  redisdata:

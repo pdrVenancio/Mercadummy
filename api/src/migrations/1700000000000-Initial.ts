@@ -1,0 +1,16 @@
+import { MigrationInterface, QueryRunner } from 'typeorm';
+export class Initial1700000000000 implements MigrationInterface {
+ name='Initial1700000000000';
+ async up(q:QueryRunner){await q.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE TABLE usuario(id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),nome varchar NOT NULL,email varchar NOT NULL UNIQUE,senha_hash varchar NOT NULL,papel varchar NOT NULL DEFAULT 'CONSUMIDOR',ativo boolean NOT NULL DEFAULT true,criado_em timestamptz NOT NULL DEFAULT now(),atualizado_em timestamptz NOT NULL DEFAULT now());
+CREATE TABLE categoria(id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),categoria_pai_id uuid REFERENCES categoria(id),nome varchar NOT NULL,slug varchar NOT NULL UNIQUE);
+CREATE TABLE endereco(id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),usuario_id uuid NOT NULL REFERENCES usuario(id),apelido varchar NOT NULL,cep varchar NOT NULL,logradouro varchar NOT NULL,numero varchar NOT NULL,complemento varchar NOT NULL DEFAULT '',bairro varchar NOT NULL,cidade varchar NOT NULL,uf varchar(2) NOT NULL,principal boolean NOT NULL DEFAULT false);
+CREATE TABLE produto(id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),anunciante_id uuid NOT NULL REFERENCES usuario(id),categoria_id uuid NOT NULL REFERENCES categoria(id),nome varchar NOT NULL,descricao text NOT NULL DEFAULT '',preco numeric(12,2) NOT NULL CHECK(preco>=0),atributos jsonb NOT NULL DEFAULT '{}',ativo boolean NOT NULL DEFAULT true,external_id varchar,origem varchar,imagem_url varchar NOT NULL DEFAULT '',imagens jsonb NOT NULL DEFAULT '[]',desconto_percentual numeric(5,2),avaliacao numeric(3,2),criado_em timestamptz NOT NULL DEFAULT now(),atualizado_em timestamptz NOT NULL DEFAULT now(),UNIQUE(origem,external_id));
+CREATE TABLE estoque(produto_id uuid PRIMARY KEY REFERENCES produto(id),quantidade integer NOT NULL DEFAULT 0 CHECK(quantidade>=0),atualizado_em timestamptz NOT NULL DEFAULT now());
+CREATE TABLE pedido(id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),usuario_id uuid NOT NULL REFERENCES usuario(id),status varchar NOT NULL,total numeric(12,2) NOT NULL,endereco_entrega jsonb NOT NULL DEFAULT '{}',criado_em timestamptz NOT NULL DEFAULT now(),atualizado_em timestamptz NOT NULL DEFAULT now());
+CREATE TABLE itens_pedido(id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),pedido_id uuid NOT NULL REFERENCES pedido(id),produto_id uuid NOT NULL REFERENCES produto(id),nome_produto varchar NOT NULL,preco_unitario numeric(12,2) NOT NULL,quantidade integer NOT NULL CHECK(quantidade>0),subtotal numeric(12,2) NOT NULL);
+CREATE TABLE pagamento(id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),pedido_id uuid NOT NULL UNIQUE REFERENCES pedido(id),metodo varchar NOT NULL,status varchar NOT NULL,valor numeric(12,2) NOT NULL,transacao_externa_id varchar,pago_em timestamptz);
+CREATE TABLE outbox(id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),tipo_agregado varchar NOT NULL,id_agregado uuid NOT NULL,tipo_evento varchar NOT NULL,payload jsonb NOT NULL,status varchar NOT NULL DEFAULT 'PENDENTE',tentativas integer NOT NULL DEFAULT 0,criado_em timestamptz NOT NULL DEFAULT now(),processado_em timestamptz);
+CREATE INDEX outbox_pendente ON outbox(status,criado_em);`);}
+ async down(q:QueryRunner){await q.query('DROP TABLE IF EXISTS outbox,pagamento,itens_pedido,pedido,estoque,produto,endereco,categoria,usuario CASCADE;');}
+}
